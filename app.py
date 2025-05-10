@@ -5,57 +5,55 @@ st.set_page_config(page_title="Splinterlands BCX Comparator")
 st.title("🧮 Splinterlands Missing BCX Comparator")
 
 username = st.text_input("Enter your Splinterlands username:")
-card_id = st.text_input("Enter Card ID:")
 
-if st.button("Compare") and username and card_id:
+if st.button("Compare") and username:
     with st.spinner("Fetching data..."):
         try:
+            # Fetch player details and owned cards
             player_url = f"https://api.splinterlands.io/players/details?name={username}"
-            card_url = f"https://api.splinterlands.io/cards/find?ids[]={card_id}"
-
             player_res = requests.get(player_url)
-            card_res = requests.get(card_url)
-
             player_data = player_res.json()
-            card_data = card_res.json()
 
-            cards_owned = [c for c in player_data.get("cards", []) if str(c.get("card_detail_id")) == card_id]
-            regular_cards = [c for c in cards_owned if not c.get("gold", False)]
-            gold_cards = [c for c in cards_owned if c.get("gold", False)]
+            if 'cards' not in player_data:
+                st.error("No cards found for this user.")
+                st.stop()
+
+            cards_owned = player_data.get("cards", [])
+
+            # Filter for Rebellion cards
+            rebellion_cards = [
+                card for card in cards_owned if "Rebellion" in card.get("card_detail", {}).get("set", "")
+            ]
+
+            if not rebellion_cards:
+                st.warning("No Rebellion cards found for this user.")
+                st.stop()
 
             def total_bcx(cards):
                 return sum(c.get("xp", 0) for c in cards)
 
-            reg_bcx = total_bcx(regular_cards)
-            gold_bcx = total_bcx(gold_cards)
+            # Display details for each Rebellion card
+            for card in rebellion_cards:
+                card_info = card.get("card_detail", {})
+                card_name = card_info.get("name", "Unknown")
+                card_id = card_info.get("id", "Unknown")
+                max_level = card_info.get("max_level", 0)
+                max_bcx = max(card_info.get("xp", []), key=lambda x: x.get("level", 0))
 
-            card_info = card_data[0]
+                # BCX for the card
+                owned_bcx = total_bcx([card])
+                max_bcx_value = max_bcx.get("xp", 0)
+                missing_bcx = max(0, max_bcx_value - owned_bcx)
+                cp_per_bcx = card_info.get("dec", 0)
 
-            max_reg = next((x["xp"] for x in card_info["xp"] if x["level"] == card_info["max_level"] and not x["gold"]), 0)
-            max_gold = next((x["xp"] for x in card_info["xp"] if x["level"] == card_info["max_level"] and x["gold"]), 0)
+                missing_cp = missing_bcx * cp_per_bcx
 
-            cp_per_bcx = card_info.get("dec", 0)
-
-            reg_missing = max(0, max_reg - reg_bcx)
-            gold_missing = max(0, max_gold - gold_bcx)
-
-            reg_cp = reg_missing * cp_per_bcx
-            gold_cp = gold_missing * cp_per_bcx * 1.5  # Estimate multiplier
-
-            col1, col2 = st.columns(2)
-            with col1:
-                st.subheader("Regular Foil")
-                st.metric("Owned BCX", reg_bcx)
-                st.metric("Max BCX", max_reg)
-                st.metric("Missing BCX", reg_missing)
-                st.metric("Missing CP", reg_cp)
-
-            with col2:
-                st.subheader("Gold Foil")
-                st.metric("Owned BCX", gold_bcx)
-                st.metric("Max BCX", max_gold)
-                st.metric("Missing BCX", gold_missing)
-                st.metric("Missing CP", gold_cp)
+                # Display results
+                st.subheader(f"{card_name} (Rebellion)")
+                st.metric("Owned BCX", owned_bcx)
+                st.metric("Max BCX", max_bcx_value)
+                st.metric("Missing BCX", missing_bcx)
+                st.metric("Missing CP", missing_cp)
 
         except Exception as e:
             st.error(f"Error: {e}")
