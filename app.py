@@ -9,16 +9,17 @@ username = st.text_input("Enter your Splinterlands username:")
 if st.button("Compare") and username:
     with st.spinner("Fetching data..."):
         try:
-            # Fetch player details and owned cards
-            player_url = f"https://api.splinterlands.io/players/details?name={username}"
-            player_res = requests.get(player_url)
-            player_data = player_res.json()
+            # Fetch owned cards for the user
+            cards_url = f"https://api2.splinterlands.com/cards/owned?name={username}"
+            cards_res = requests.get(cards_url)
+            cards_data = cards_res.json()
 
-            if 'cards' not in player_data:
-                st.error("No cards found for this user.")
+            # Check if the player owns any cards
+            if 'cards' not in cards_data or not cards_data['cards']:
+                st.warning(f"No cards found for user {username}.")
                 st.stop()
 
-            cards_owned = player_data.get("cards", [])
+            cards_owned = cards_data.get("cards", [])
 
             # Filter for Rebellion cards
             rebellion_cards = [
@@ -26,7 +27,7 @@ if st.button("Compare") and username:
             ]
 
             if not rebellion_cards:
-                st.warning("No Rebellion cards found for this user.")
+                st.warning(f"No Rebellion cards found for {username}.")
                 st.stop()
 
             def total_bcx(cards):
