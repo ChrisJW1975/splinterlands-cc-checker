@@ -12,6 +12,11 @@ if st.button("Compare") and username:
             # Fetch owned cards for the user
             cards_url = f"https://api2.splinterlands.com/cards/owned?name={username}"
             cards_res = requests.get(cards_url)
+
+            # Log the raw response
+            st.write("API Response:", cards_res.text)  # This logs the raw response content
+
+            # Check if the response is valid JSON
             cards_data = cards_res.json()
 
             # Check if the player owns any cards
